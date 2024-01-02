@@ -36,6 +36,11 @@
 /* USER CODE BEGIN PD */
 #define DISABLE_CAN_WAIT_CONNECT 0
 #define DISABLE_C620_WAIT_CONNECT 0
+
+#define mcmd
+#define c620
+//適宜コメントアウト
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -74,17 +79,21 @@ DMA_HandleTypeDef hdma_usart3_tx;
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
+#ifdef mcmd
 NUM_OF_DEVICES num_of_devices;
 
 MCMD_HandleTypedef mcmd4_struct;
 
 MCMD_Feedback_Typedef mcmd_fb;
+#endif
 
+#ifdef c620
 uint8_t num_of_c620 = 1;
 
 C620_DeviceInfo c620_dev_info_global[8];
 
 C620_FeedbackData c620_fb[8];
+#endif
 
 
 /* USER CODE END PV */
@@ -117,7 +126,7 @@ PUTCHAR_PROTOTYPE {
 }
 
 
-
+#if defined(mcmd) || defined(c620)
 void HAL_CAN_TxMailbox0CompleteCallback(CAN_HandleTypeDef *hcan){
     C620_WhenTxMailboxCompleteCallbackCalled(hcan);
     CANLib_WhenTxMailbox0_1_2CompleteCallbackCalled(hcan);
@@ -147,15 +156,19 @@ void HAL_CAN_TxMailbox2AbortCallback(CAN_HandleTypeDef *hcan){
     C620_WhenTxMailboxAbortCallbackCalled(hcan);
     CANLib_WhenTxMailbox0_1_2AbortCallbackCalled(hcan);
 }
+#endif
 
+#ifdef mcmd
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
     WhenCANRxFifo0MsgPending(hcan, &num_of_devices);
 }
+#endif
 
+#ifdef c620
 void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan){
     C620_WhenCANRxFifo1MsgPending(hcan);
 }
-
+#endif
 
 /* USER CODE END 0 */
 
@@ -195,7 +208,7 @@ int main(void)
   MX_USB_OTG_FS_PCD_Init();
   /* USER CODE BEGIN 2 */
 
-
+#ifdef mcmd
   printf("Start Initializing CAN System:Begin\n\r");
   HAL_Delay(100);
 
@@ -246,7 +259,9 @@ int main(void)
 	HAL_Delay(10);
 	MCMD_Control_Enable(&mcmd4_struct);  // 制御開始
 	HAL_Delay(10);
+#endif
 
+#ifdef c620
    printf("Start Initializing CAN System for C620:Begin\n\r");
    HAL_Delay(100);
 
@@ -294,6 +309,7 @@ int main(void)
    for(int i=0; i<num_of_c620; i++)C620_ControlEnable(&(c620_dev_info_global[i]));
 
    C620_SetTarget(&c620_dev_info_global[0],1.0f);
+#endif
 
   /* USER CODE END 2 */
 
@@ -301,16 +317,19 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
+#ifdef mcmd
 	  mcmd_fb = Get_MCMD_Feedback(&(mcmd4_struct.device));
 	  printf("value of mcmd3 %d\r\n",(int)(mcmd_fb.value));
 	  HAL_Delay(5);
+#endif
 
+#ifdef c620
 	  for(int i=0;i<num_of_c620;i++){
 		  c620_fb[i] = Get_C620_FeedbackData(&c620_dev_info_global[i]);
 		  printf("value of c620[%d] %d\r\n",i,(int)(c620_fb[i].current));
 		  HAL_Delay(5);
 	  }
+#endif
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
