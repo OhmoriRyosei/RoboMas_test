@@ -37,7 +37,7 @@
 #define DISABLE_CAN_WAIT_CONNECT 0
 #define DISABLE_C620_WAIT_CONNECT 0
 
-#define mcmd
+//#define mcmd
 #define c620
 //適宜コメントアウト
 
@@ -208,6 +208,9 @@ int main(void)
   MX_USB_OTG_FS_PCD_Init();
   /* USER CODE BEGIN 2 */
 
+  setbuf(stdout, NULL);
+  setbuf(stderr, NULL);
+
 #ifdef mcmd
   printf("Start Initializing CAN System:Begin\n\r");
   HAL_Delay(100);
@@ -226,12 +229,12 @@ int main(void)
 
 	   // ここからはCANモジュール基板の設定
 	 // 接続先のMCMDの設定
-	 mcmd4_struct.device.node_type = NODE_MCMD4;  // nodeのタイプ (NODE_MCMD3など)
-	 mcmd4_struct.device.node_id = 2;  // 基板の番号 (基板上の半固定抵抗を回す事で設定できる)
+	 mcmd4_struct.device.node_type = NODE_MCMD3;  // nodeのタイプ (NODE_MCMD3など)
+	 mcmd4_struct.device.node_id = 1;  // 基板の番号 (基板上の半固定抵抗を回す事で設定できる)
 	 mcmd4_struct.device.device_num = 0;  // モーターの番号(MCMDなら0と1の2つが選べる)
 
 	 // 制御パラメータの設定
-	 mcmd4_struct.ctrl_param.ctrl_type = MCMD_CTRL_POS;  // 位置制御を行う
+	 mcmd4_struct.ctrl_param.ctrl_type = MCMD_CTRL_DUTY;  // 位置制御を行う
 	 mcmd4_struct.ctrl_param.PID_param.kp = 0.10f;  // Pゲイン 0.10
 	 mcmd4_struct.ctrl_param.PID_param.ki = 0.0f;  // Iゲイン 0.0
 	 mcmd4_struct.ctrl_param.PID_param.kd = 0.0f;  // Dゲイン 0.0 (Dゲインは使いにくい)
@@ -259,23 +262,30 @@ int main(void)
 	HAL_Delay(10);
 	MCMD_Control_Enable(&mcmd4_struct);  // 制御開始
 	HAL_Delay(10);
+    MCMD_SetTarget(&mcmd4_struct, 0.10f);
+    HAL_Delay(10);
 #endif
 
 #ifdef c620
-   printf("Start Initializing CAN System for C620:Begin\n\r");
-   HAL_Delay(100);
+//   printf("Start Initializing CAN System for C620:Begin\n\r");
+//   HAL_Delay(100);
+//
+//   CAN_SystemInit(&hcan1);
+//
+//   printf("Start Initializing CAN System for C620:End\n\r");
+//   HAL_Delay(100);
+//   C620_WaitForConnect(c620_dev_info_global, num_of_c620);  // C620の接続待ち
 
-   CAN_SystemInit(&hcan1);
-
-   printf("Start Initializing CAN System for C620:End\n\r");
-   HAL_Delay(100);
-   C620_WaitForConnect(c620_dev_info_global, num_of_c620);  // C620の接続待ち
+    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);  // LD1 (GREEN) ON
+    Init_C620_CAN_System(&hcan1);  // Init CAN System for C620
+    C620_Init(c620_dev_info_global, num_of_c620);
 
    c620_dev_info_global[0].device_id = 1;  // 1スタートな事に注意
    c620_dev_info_global[0].ctrl_param.accel_limit = C620_ACCEL_LIMIT_ENABLE;
+//   c620_dev_info_global[0].ctrl_param.use_internal_offset = C620_USE_OFFSET_POS_DISABLE;
+//   c620_dev_info_global[0].ctrl_param.use_internal_offset = C620_USE_OFFSET_POS_INTERNAL;
    c620_dev_info_global[0].ctrl_param.use_internal_offset = C620_USE_OFFSET_POS_CALIB;
-   c620_dev_info_global[0].ctrl_param.use_internal_offset = C620_USE_OFFSET_POS_INTERNAL;
-   c620_dev_info_global[0].ctrl_param.ctrl_type = C620_CTRL_VEL;
+   c620_dev_info_global[0].ctrl_param.ctrl_type = C620_CTRL_POS;
    c620_dev_info_global[0].ctrl_param.accel_limit_size = 15.0f;
    c620_dev_info_global[0].ctrl_param.quant_per_rot = 1.0f/19.0f / 3.0f * 3.141592f * 2.0f;  //M3508は19:1
    c620_dev_info_global[0].ctrl_param.rotation = C620_ROT_ACW;  // 半時計周り
@@ -286,29 +296,43 @@ int main(void)
    c620_dev_info_global[0].ctrl_param.pid_vel.kff = 0.0f;
 
    c620_dev_info_global[0].ctrl_param.pid.kp = 10.0f;  // 位置制御用
-   c620_dev_info_global[0].ctrl_param.pid.kp = 12.3f;  // 位置制御用
    c620_dev_info_global[0].ctrl_param.pid.ki = 0.16f;
    c620_dev_info_global[0].ctrl_param.pid.kd = 0.0f;
    c620_dev_info_global[0].ctrl_param.pid.kff = 0.0f;
 
-// TODO:Init,Calibrationの必要性
-//   C620_Init(&c620_dev_info_global[0],num_of_c620);
-//   HAL_Delay(10);
-//   C620_Calibration(&c620_dev_info_global[0], -2.0f, SWITCH_NO, GPIOG, GPIO_PIN_1, &hcan1);  //
-//   HAL_Delay(1000);
-//   C620_SetTarget(&c620_dev_info_global[0], 1.0f);  // 目標値を設定
-//   HAL_Delay(10);
-//   C620_ControlEnable(&c620_dev_info_global[0]);
 
-   for(int i=0; i<num_of_c620; i++)C620_SetTarget(&c620_dev_info_global[i], 0.0f);
+
+
+// TODO:Init,Calibrationの必要性
+   C620_SetTarget(&c620_dev_info_global[0], 10.0f);
+   HAL_Delay(10);
    if(!DISABLE_C620_WAIT_CONNECT)C620_WaitForConnect(c620_dev_info_global, num_of_c620);
+   HAL_Delay(10);
+//   C620_Calibration(&c620_dev_info_global[0], -1.0f, 1, GPIOG, GPIO_PIN_1, &hcan1);
+//   HAL_Delay(1000);
+
+ //   c620_send_current(&c620_dev_info_global[0], 1.0f, &hcan1);
+
+   C620_ControlEnable(&c620_dev_info_global[0]);
+   HAL_Delay(10);
+   C620_SetTarget(&c620_dev_info_global[0], 1.0f);  // 目標値を設定
+
+
+
+//   for(int i=0; i<num_of_c620; i++)C620_SetTarget(&c620_dev_info_global[i], 0.0f);
+//   if(!DISABLE_C620_WAIT_CONNECT)C620_WaitForConnect(c620_dev_info_global, num_of_c620);
 //    for(int i=0; i<num_of_c620; i++){
-//        C620_Calibration(&c620_dev_info_global[i], -2.0f, SWITCH_NO, GPIOG, GPIO_PIN_1, &hcan1);
+//        C620_Calibration(&c620_dev_info_global[i], -0.5f, 1, GPIOG, GPIO_PIN_1, &hcan1);
 //        C620_ControlEnable(&(c620_dev_info_global[i]));
 //    }
-   for(int i=0; i<num_of_c620; i++)C620_ControlEnable(&(c620_dev_info_global[i]));
+//   //for(int i=0; i<num_of_c620; i++)C620_ControlEnable(&(c620_dev_info_global[i]));
+//
+//
+//   C620_SetTarget(&c620_dev_info_global[0],100.0f);
+//   HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
 
-   C620_SetTarget(&c620_dev_info_global[0],1.0f);
+
+
 #endif
 
   /* USER CODE END 2 */
@@ -326,7 +350,7 @@ int main(void)
 #ifdef c620
 	  for(int i=0;i<num_of_c620;i++){
 		  c620_fb[i] = Get_C620_FeedbackData(&c620_dev_info_global[i]);
-		  printf("value of c620[%d] %d\r\n",i,(int)(c620_fb[i].current));
+		  printf("value of c620[%d] %d\r\n",i,(int)(c620_fb[i].position));
 		  HAL_Delay(5);
 	  }
 #endif
